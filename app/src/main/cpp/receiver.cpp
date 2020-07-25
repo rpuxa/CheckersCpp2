@@ -4,6 +4,7 @@
 #include "bitutils.h"
 #include "engine.h"
 #include "engine.cpp"
+#include <string>
 
 const _move END_MOVES_FLAG = ~static_cast<const _move>(0);
 
@@ -23,7 +24,7 @@ Java_ru_rpuxa_checkerscpp_natives_NativeMethods_getBestMove(
         jint blackCheckers,
         jint whiteQueens,
         jint blackQueens,
-        jint multiTake,
+        jshort previousMove,
         jboolean isWhiteMove,
         jshort analyzeDepth,
         jshortArray evalAndMoves_
@@ -49,7 +50,7 @@ Java_ru_rpuxa_checkerscpp_natives_NativeMethods_getBestMove(
             bq,
             rotateBoard(w),
             rotateBoard(b),
-            multiTake,
+            previousMove,
             isWhiteMove,
             analyzeDepth,
             moves,
@@ -76,6 +77,7 @@ Java_ru_rpuxa_checkerscpp_natives_NativeMethods_getAvailableMoves(JNIEnv *env, j
                                                                   jint whiteQueens,
                                                                   jint blackQueens,
                                                                   jboolean isWhiteTurn,
+                                                                  jshort previousMove,
                                                                   jshortArray movesArray_) {
     jshort *movesArray = env->GetShortArrayElements(movesArray_, 0);
 
@@ -93,8 +95,7 @@ Java_ru_rpuxa_checkerscpp_natives_NativeMethods_getAvailableMoves(JNIEnv *env, j
             rotateBoard(w),
             rotateBoard(b),
             isWhiteTurn,
-            false,
-            -1
+            previousMove
     );
 
     _move size = *currentMoves;
@@ -145,3 +146,15 @@ JNIEXPORT void JNICALL
 Java_ru_rpuxa_checkerscpp_natives_NativeMethods_stopSearching(JNIEnv *env, jclass clazz) {
     stopSearching();
 }
+
+extern "C"
+JNIEXPORT void JNICALL
+Java_ru_rpuxa_checkerscpp_natives_NativeMethods_prepareEndGame(JNIEnv *env, jclass clazz, jstring path) {
+    int length = env->GetStringLength(path);
+    jboolean isCopy;
+    const char *convertedValue = (env)->GetStringUTFChars(path, &isCopy);
+    string s = string(convertedValue, length);
+
+    prepareEndGame(s);
+}
+

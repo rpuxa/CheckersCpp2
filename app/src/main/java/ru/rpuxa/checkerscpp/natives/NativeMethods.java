@@ -5,12 +5,14 @@ public class NativeMethods {
 
     public static native void prepareEngine();
 
+    public static native void prepareEndGame(String path);
+
     public static native void getBestMove(
             int whiteCheckers,
             int blackCheckers,
             int whiteQueens,
             int blackQueens,
-            int multiTake,
+            short previousMove,
             boolean isWhiteMove,
             short analyzeDepth,
             short[] evalAndMoves
@@ -22,6 +24,7 @@ public class NativeMethods {
             int whiteQueens,
             int blackQueens,
             boolean isTurnWhite,
+            short previousMove,
             short[] movesArray
     );
 

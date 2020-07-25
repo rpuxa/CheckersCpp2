@@ -4,6 +4,7 @@ import ru.rpuxa.checkerscpp.game.board.Cell
 import ru.rpuxa.checkerscpp.natives.Move
 import ru.rpuxa.checkerscpp.natives.NativeEngine
 
+/*
 object StupidBot : Player {
     override fun onAction(action: Action) {
     }
@@ -15,4 +16,4 @@ object StupidBot : Player {
            NativeEngine.getFigureMoves(game.position, multiTake).first()
        }
     }
-}
+}*/

@@ -7,6 +7,6 @@ interface Player {
 
     fun onAction(action: Action)
 
-    suspend fun onMove(game: Game, multiTake: Cell?): Move
+    suspend fun onMove(game: Game, previousMove: Move?): Move
 }
 

@@ -3,8 +3,13 @@
 #include "bitutils.h"
 #include "bitutils.cpp"
 #include "types.h"
+#include <string>
+
 
 #define MULTI_TAKE_FLAG 0b10000000000000
+#define QUEEN_FLAG 0b1000000000000
+
+using namespace std;
 
 _move createMove(_ci from, _ci to, _cb isTake, _cb isWhite, _cb isQueen) {
     return static_cast<_move>(isTake | (from << 1) | (to << 6) | (isWhite << 11) | (isQueen << 12));
@@ -108,6 +113,17 @@ const _ui MASK_90[] = {
         0b11, 0b11
 };
 
+const char DIAGONAL[] = {
+        0,
+        1, 1, 1,
+        2, 2, 2, 2, 2,
+        3, 3, 3, 3, 3, 3, 3,
+        4, 4, 4, 4, 4, 4, 4,
+        5, 5, 5, 5, 5,
+        6, 6, 6,
+        7
+};
+
 
 _move ***movesW[32];
 _move ***movesB[32];
@@ -126,6 +142,10 @@ _ui moveBitMasksQueen[MOVES_SET_POWER];
 _ui takeMasks90[MOVES_SET_POWER];
 _ui moveBitMasks90[MOVES_SET_POWER];
 _ui moveHash[MOVES_SET_POWER];
+bool isPromotion[MOVES_SET_POWER];
+// first bit - rotated
+// second bit - opposite
+unsigned char reversedDirection[MOVES_SET_POWER];
 
 const int dirs[] = {1, -1};
 
@@ -321,9 +341,6 @@ void genMovesMask() {
                                                     static_cast<const bool &>(isTake),
                                                     static_cast<_cb &>(white),
                                                     static_cast<_cb>(queen));
-                            if (move == 71) {
-                                int asda;
-                            }
                             if (multiTake) {
                                 move |= MULTI_TAKE_FLAG;
                             }
@@ -385,9 +402,6 @@ void genMovesMask() {
                                     type = 2;
                                 }
                             }
-                            if (move == 6339) {
-                                int a = 213;
-                            }
 
                             int type2 = type;
                             if (white && LAST_HORIZONTAL[to]) {
@@ -397,6 +411,27 @@ void genMovesMask() {
                                 type2 = 3;
                             }
                             moveHash[move] = zorbistKeys[type][from] ^ zorbistKeys[type2][to];
+
+
+                            bool nrotated = DIAGONAL[from] == DIAGONAL[to];
+                            int f, t;
+                            if (nrotated) {
+                                f = from;
+                                t = to;
+                            } else {
+                                f = rotatedFrom;
+                                t = rotatedTo;
+                            }
+                            reversedDirection[move] = (nrotated ? 0 : 1) | ((t > f) ? 0b10 : 0);
+
+
+                            if (!queen) {
+                                if (white) {
+                                    isPromotion[move] = LAST_HORIZONTAL[to];
+                                } else {
+                                    isPromotion[move] = FIRST_HORIZONTAL[to];
+                                }
+                            }
                         }
 }
 
@@ -448,7 +483,10 @@ void __getMoves(
         _cboard enemy90,
         _cb isWhiteMove,
         bool take,
-        int figureCell
+        int figureCell,
+        bool q,
+        bool rot,
+        bool opp
 ) {
     _move currentMovesSize = 0;
 
@@ -463,7 +501,7 @@ void __getMoves(
             zeroLowestBitAssign(ourIter);
 
             if (figureCell != -1) {
-                queen = getBit(our_q, figureCell);
+                queen = q;
                 cell = figureCell;
             }
 
@@ -507,6 +545,10 @@ void __getMoves(
                                 queenTaking = false;
                                 opposite = true;
                             }
+                            if (q && (opposite == opp) && (rotated == rot)) {
+                                continue;
+                            }
+
                             bool isNotEmpty = *__getTakes(all, enemy, all90, enemy90, isWhiteMove,
                                                           to, true, !rotated);
 
@@ -547,8 +589,10 @@ void __getMoves(
                                                 (bool) rotated) > 0
                                     ) {
                                 move |= MULTI_TAKE_FLAG;
-                            } else if (((isWhiteMove && LAST_HORIZONTAL[to]) || (!isWhiteMove && FIRST_HORIZONTAL[to]))) {
-                                if (*__getTakes(all, enemy, all90, enemy90, isWhiteMove, to, true, !rotated)) {
+                            } else if (((isWhiteMove && LAST_HORIZONTAL[to]) ||
+                                        (!isWhiteMove && FIRST_HORIZONTAL[to]))) {
+                                if (*__getTakes(all, enemy, all90, enemy90, isWhiteMove, to, true,
+                                                !rotated)) {
                                     move |= MULTI_TAKE_FLAG;
                                 }
                             }
@@ -578,13 +622,32 @@ void getMoves(
         _cboard w90,
         _cboard b90,
         _cb isWhiteMove,
-        bool take,
-        int figureCell
+        _move previousMove
 ) {
-    if (isWhiteMove) {
-        __getMoves(wc, bc, wq, bq, w90, b90, isWhiteMove, take, figureCell);
+    bool take;
+    int figureCell;
+    bool q;
+    bool opp;
+    bool rot;
+
+    if (previousMove & MULTI_TAKE_FLAG) {
+        take = true;
+        figureCell = getTo(previousMove);
+        _cboard i1 = wq | bq;
+        _cboard i = i1 >> figureCell;
+        q = i & 1;
+        auto reversedBits = reversedDirection[previousMove];
+        rot = reversedBits & 1;
+        opp = reversedBits >> 1;
     } else {
-        __getMoves(bc, wc, bq, wq, b90, w90, isWhiteMove, take, figureCell);
+        take = false;
+        figureCell = -1;
+        q = false;
+    }
+    if (isWhiteMove) {
+        __getMoves(wc, bc, wq, bq, w90, b90, isWhiteMove, take, figureCell, q, rot, opp);
+    } else {
+        __getMoves(bc, wc, bq, wq, b90, w90, isWhiteMove, take, figureCell, q, rot, opp);
     }
 }
 
@@ -594,37 +657,48 @@ inline void swap(_move &a, _move &b) {
     b = tmp;
 }
 
-void sortMoves(_move hashedMove) {
+short moveScore[128];
+
+void qsort(int first, int last) {
+    int mid;
+    int f = first, l = last;
+    mid = moveScore[(f + l) / 2]; //вычисление опорного элемента
+    do {
+        while (moveScore[f] < mid) f++;
+        while (moveScore[l] > mid) l--;
+        if (f <= l) //перестановка элементов
+        {
+            swap(moveScore[f], moveScore[l]);
+            swap(currentMoves[f], currentMoves[l]);
+            f++;
+            l--;
+        }
+    } while (f < l);
+    if (first < l) qsort(first, l);
+    if (f < last) qsort(f, last);
+}
+
+void sortMoves(_move hashedMove, _move killer) {
     _move movesSize = *currentMoves;
     if (movesSize < 2)
         return;
-/*
-    _move *previous = new _move[*currentMoves];
-    for (int i = 1; i <= *currentMoves; ++i) {
-        previous[i - 1] = currentMoves[i];
-    }*/
-
 
     for (int i = 1; i <= movesSize; ++i) {
-        if (currentMoves[i] == hashedMove) {
-            swap(currentMoves[1], currentMoves[i]);
-            break;
+        _move move = currentMoves[i];
+        short score = 0;
+        if (move == killer) {
+            score -= 100;
         }
+        if (isPromotion[move]) {
+            score -= 150;
+        }
+        if (move == hashedMove) {
+            score -= 200;
+        }
+        moveScore[i] = score;
     }
 
-
-/*    int i = 1;
-    t:
-    while (i <= *currentMoves) {
-        _move move = currentMoves[i];
-        for (int j = 0; j < *currentMoves; ++j) {
-            if (move == previous[j]) {
-                ++i;
-                goto t;
-            }
-        }
-        throw 1488;
-    }*/
+    qsort(1, movesSize);
 }
 
 inline void __makeMove(
@@ -701,4 +775,81 @@ _board rotateBoard(_board board) {
     }
 
     return rotated;
+}
+
+int endgameSize = 0;
+FILE *endgameData;
+FILE *endgameIndex;
+
+void prepareEndGame(string path) {
+    for (int i = 2; i < 10; ++i) {
+        FILE *index = fopen((path + "/endgame" + to_string(i) + ".index").c_str(), "r");
+        FILE *data = fopen((path + "/endgame" + to_string(i) + ".data").c_str(), "r");
+        if (index != nullptr && data != nullptr) {
+            endgameSize = i;
+            endgameData = data;
+            endgameIndex = index;
+            return;
+        }
+    }
+    throw exception();
+}
+
+const short WHITE_CHECKER_POS[] = {
+        0,
+        1, 2, 3,
+        4, 5, 6, 7, 8,
+        9, 10, 11, 12, 13, 14, 15,
+        16, 17, 18, 19, 20, 21, -1,
+        22, 23, 24, 25, -1,
+        26, 27, -1,
+        -1
+};
+
+const short BLACK_CHECKER_POS[] = {
+        -1,
+        -1, 0, 1,
+        -1, 2, 3, 4, 5,
+        -1, 6, 7, 8, 9, 10, 11,
+        12, 13, 14, 15, 16, 17, 18,
+        19, 20, 21, 22, 23,
+        24, 25, 26,
+        27
+};
+
+
+// bq = 64
+// wc = 8388608
+// 1494
+short getEndgame(_board wc, _board bc, _board wq, _board bq) {
+    _ui index = (((bitCount(wc) * endgameSize) + bitCount(bc)) * endgameSize + bitCount(wq)) *
+                endgameSize + bitCount(bq);
+    fseek(endgameIndex, index * 4, SEEK_SET);
+    int offset;
+    fread(&offset, sizeof(int), 1, endgameIndex);
+    int offset2 = 0;
+    while (wc) {
+        auto i = getLowestBit(wc);
+        zeroLowestBitAssign(wc);
+        offset2 = 28 * offset2 + WHITE_CHECKER_POS[i];
+    }
+    while (bc) {
+        auto i = getLowestBit(bc);
+        zeroLowestBitAssign(bc);
+        offset2 = 28 * offset2 + BLACK_CHECKER_POS[i];
+    }
+    while (wq) {
+        auto i = getLowestBit(wq);
+        zeroLowestBitAssign(wq);
+        offset2 = 32 * offset2 + i;
+    }
+    while (bq) {
+        auto i = getLowestBit(bq);
+        zeroLowestBitAssign(bq);
+        offset2 = 32 * offset2 + i;
+    }
+    fseek(endgameData, offset + offset2, SEEK_SET);
+    signed char score;
+    fread(&score, 1, 1, endgameData);
+    return score;
 }

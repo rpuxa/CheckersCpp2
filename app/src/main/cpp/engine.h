@@ -18,7 +18,7 @@ void getBestMove(
         _board bq,
         _board w90,
         _board b90,
-        int multiTake,
+        _move previousMove,
         _cb isWhiteMove,
         short depth,
         std::vector<_move> &bestLine,

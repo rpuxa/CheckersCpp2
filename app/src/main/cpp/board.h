@@ -24,8 +24,7 @@ void getMoves(
         _cboard w90,
         _cboard b90,
         _cb isWhiteMove,
-        bool take,
-        int figureCell
+        _move previousMove
 );
 
 void makeMove(

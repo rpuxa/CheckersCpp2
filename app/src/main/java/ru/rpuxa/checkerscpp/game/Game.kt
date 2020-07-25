@@ -4,6 +4,7 @@ import android.util.Log
 import kotlinx.coroutines.*
 import ru.rpuxa.checkerscpp.game.board.Cell
 import ru.rpuxa.checkerscpp.game.board.Position
+import ru.rpuxa.checkerscpp.natives.Move
 import ru.rpuxa.checkerscpp.natives.NativeEngine
 
 class Game(
@@ -26,19 +27,19 @@ class Game(
             blackPlayer.onAction(GameBegin(position, false))
             observer?.onAction(GameBegin(position, true))
 
-            var multiTake: Cell? = null
+            var previousMove: Move? = null
             while (isActive) {
                 val player = if (isTurnWhite) whitePlayer else blackPlayer
                 val otherPlayer = if (!isTurnWhite) whitePlayer else blackPlayer
 
-                val moves = NativeEngine.getAllMoves(position, isTurnWhite)
+                val moves = NativeEngine.getAllMoves(position, isTurnWhite, previousMove)
 
                 if (moves.isEmpty()) {
                     break
                 }
 
                 Log.d("MyGame", "Waiting for move $player")
-                val move = player.onMove(this@Game, multiTake)
+                val move = player.onMove(this@Game, previousMove)
                 movesCount++
                 Log.d("MyGame", "Move is $move")
                 position.makeMove(move)
@@ -49,9 +50,9 @@ class Game(
 
                 if (!move.multiTake) {
                     isTurnWhite = !isTurnWhite
-                    multiTake = null
+                    previousMove = null
                 } else {
-                    multiTake = move.to
+                    previousMove = move
                 }
                 if (movesCount > 100) break
                 Log.d("MyGame", "Next move...")

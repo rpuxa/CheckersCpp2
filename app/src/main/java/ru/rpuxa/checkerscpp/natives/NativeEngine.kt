@@ -33,11 +33,11 @@ object NativeEngine {
         return false
     }*/
 
-    suspend fun getFigureMoves(position: Position, cell: Cell) =
-        getAllMoves(position, position.board[cell.x][cell.y].isWhite)
+    suspend fun getFigureMoves(position: Position, cell: Cell, previousMove: Move?) =
+        getAllMoves(position, position.board[cell.x][cell.y].isWhite, previousMove)
             .filter { it.from == cell }
 
-    fun getAllMoves(position: Position, white: Boolean): List<Move> {
+    fun getAllMoves(position: Position, white: Boolean, previousMove: Move?): List<Move> {
         val (whiteCheckers, blackCheckers, whiteQueens, blackQueens) =
             position.toNative()
 
@@ -49,6 +49,7 @@ object NativeEngine {
             whiteQueens,
             blackQueens,
             white,
+            previousMove?.native ?: 0,
             array
         )
 //        }
@@ -65,16 +66,13 @@ object NativeEngine {
 
     fun getBestMove(
         position: Position,
-        multiTake: Cell?,
+        previousMove: Move?,
         isTurnWhite: Boolean,
         depth: Int
     ): Pair<List<Move>, Double> {
         val (whiteCheckers, blackCheckers, whiteQueens, blackQueens) =
             position.toNative()
-        var multiTakeInt = -1
-        if (multiTake != null) {
-            multiTakeInt = BITS[multiTake.x][multiTake.y]
-        }
+
 
         val array = ShortArray(MAX_MOVES_COUNT)
         NativeMethods.getBestMove(
@@ -82,7 +80,7 @@ object NativeEngine {
             blackCheckers,
             whiteQueens,
             blackQueens,
-            multiTakeInt,
+            previousMove?.native ?: 0,
             isTurnWhite,
             depth.toShort(),
             array
@@ -104,5 +102,5 @@ object NativeEngine {
 
 
 
-    private const val END_MOVES_FLAG: Short = -1
+    const val END_MOVES_FLAG: Short = -1
 }

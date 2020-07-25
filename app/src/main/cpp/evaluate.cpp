@@ -421,11 +421,6 @@ short eval(
         _board wq,
         _board bq
 ) {
-    if ((wc | wq) == 0)
-        return -30000;
-    if ((bc | bq) == 0)
-        return 30000;
-
     _ui count = bitCount(wc | wq | bc | bq);
     if (count <= 8) {
         return -endGameEval(wc, bc, wq, bq);

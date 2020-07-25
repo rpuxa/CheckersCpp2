@@ -5,6 +5,8 @@ sealed class Figure {
     val isWhite get() = this === WhiteChecker || this === WhiteQueen
 }
 
+
+
 object WhiteChecker : Figure()
 
 object BlackChecker : Figure()

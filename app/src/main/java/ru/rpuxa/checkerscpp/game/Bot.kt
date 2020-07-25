@@ -16,10 +16,10 @@ object Bot : Player {
 
     }
 
-    override suspend fun onMove(game: Game, multiTake: Cell?): Move {
+    override suspend fun onMove(game: Game, previousMove: Move?): Move {
         val startTime = System.currentTimeMillis()
 
-        val moves = NativeEngine.getAllMoves(game.position, game.isTurnWhite)
+        val moves = NativeEngine.getAllMoves(game.position, game.isTurnWhite, previousMove)
         if (moves.size == 1) {
             return moves.first()
         }
@@ -42,7 +42,7 @@ object Bot : Player {
         while (true) {
             val (move, score) = NativeEngine.getBestMove(
                 game.position,
-                multiTake,
+                previousMove,
                 game.isTurnWhite,
                 depth
             )
@@ -56,7 +56,7 @@ object Bot : Player {
                 }}"
             )
             lastMove = move.first()
-            if (time > 0.20 * delay)
+            if (time > 0.2 * delay)
                 break
             if (game.isTurnWhite) {
                 if (score > 200) {
@@ -67,7 +67,8 @@ object Bot : Player {
                     break
                 }
             }
-            depth += 2
+            if (depth >= 32) break
+            depth++
         }
         job.cancel()
         return lastMove ?: error("Не успели подсчитать")

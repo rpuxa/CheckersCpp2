@@ -5,7 +5,7 @@ import ru.rpuxa.checkerscpp.game.board.Position
 import ru.rpuxa.checkerscpp.game.board.x
 import kotlin.experimental.inv
 
-class Move(val from: Cell, val to: Cell, val isTaking: Boolean, val multiTake: Boolean) {
+class Move(val from: Cell, val to: Cell, val isTaking: Boolean, val multiTake: Boolean, val native: Short) {
 
     fun toNative(position: Position): Int {
         return (Position.BITS[from.x][from.y] shl 1) or
@@ -30,7 +30,8 @@ class Move(val from: Cell, val to: Cell, val isTaking: Boolean, val multiTake: B
                 X[fromInt] x Y[fromInt],
                 X[toInt] x Y[toInt],
                 move checkBit 0,
-                move checkBit 13
+                move checkBit 13,
+                move.toShort()
             )
         }
 

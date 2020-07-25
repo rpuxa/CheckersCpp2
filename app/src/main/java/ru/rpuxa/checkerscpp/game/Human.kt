@@ -11,10 +11,12 @@ import kotlin.coroutines.suspendCoroutine
 
 class Human(private val view: BoardView) : Player {
 
+    private var previousMove: Move? = null
+
     init {
         view.setMovesUpdater { position, cell ->
             GlobalScope.launch {
-                val moves = NativeEngine.getFigureMoves(position, cell)
+                val moves = NativeEngine.getFigureMoves(position, cell, previousMove)
                 view.setMoves(moves)
             }
         }
@@ -30,10 +32,11 @@ class Human(private val view: BoardView) : Player {
         }
     }
 
-    override suspend fun onMove(game: Game, multiTake: Cell?): Move {
-        view.multiTake = multiTake != null
-        if (multiTake != null) {
-            view.setMoves(NativeEngine.getFigureMoves(game.position, multiTake))
+    override suspend fun onMove(game: Game, previousMove: Move?): Move {
+        this.previousMove = previousMove
+        view.multiTake = previousMove != null
+        if (previousMove != null) {
+            view.setMoves(NativeEngine.getFigureMoves(game.position, previousMove.to, previousMove))
         }
         val result = suspendCoroutine<Move> { cont ->
             view.onMove = {

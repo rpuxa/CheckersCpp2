@@ -1,24 +1,38 @@
 package ru.rpuxa.checkerscpp
 
-import androidx.test.platform.app.InstrumentationRegistry
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Environment
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.rule.ActivityTestRule
+import org.junit.Rule
 
 import org.junit.Test
 import org.junit.runner.RunWith
 
-import org.junit.Assert.*
+import ru.rpuxa.checkerscpp.game.board.*
+import ru.rpuxa.checkerscpp.natives.*
+import java.io.DataOutputStream
+import java.io.File
+import java.io.FileOutputStream
+import kotlin.math.pow
 
 /**
  * Instrumented test, which will execute on an Android device.
  *
  * See [testing documentation](http://d.android.com/tools/testing).
  */
-@RunWith(AndroidJUnit4::class)
+
+
 class ExampleInstrumentedTest {
-    @Test
-    fun useAppContext() {
-        // Context of the app under test.
-        val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("ru.rpuxa.testcpp", appContext.packageName)
-    }
+
+    @Rule
+    @JvmField
+    var rule = ActivityTestRule<StartActivity>(StartActivity::class.java)
+
+
 }
+
+

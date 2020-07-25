@@ -68,17 +68,29 @@ short alphaBeta(
         short maxDepth,
         _move previousMove,
         int moveCount,
-        int &moveLineLength
+        int &moveLineLength,
+        _move killer
 ) {
-   if (stop) {
-       return CANCEL_SCORE;
-   }
+    if (stop) {
+        return CANCEL_SCORE;
+    }
+
+    if ((wc | wq) == 0)
+        return WHITE_LOSING + depth;
+    if ((bc | bq) == 0)
+        return BLACK_LOSING - depth;
+
+    if (depth > 0 && bitCount(wc | bc | wq | bq) <= endgameSize) {
+        short result = isWhiteMove ? getEndgame(wc, bc, wq, bq) : -getEndgame(reverse(bc),
+                                                                              reverse(wc),
+                                                                              reverse(bq),
+                                                                              reverse(wq));
+        if (result == 0) return 0;
+        short score = result > 0 ? 25001 - depth : -25001 + depth;
+        return score - result;
+    }
 
     short score;
-    /*
-    if (mhash(wc, bc, wq, bq) != hash) {
-        throw exception();
-    }*/
 
     _pos pos[5] = {wc, bc, wq, bq, static_cast<_pos>(
             (isWhiteMove << 6) | (depth << 7)
@@ -98,12 +110,8 @@ short alphaBeta(
         return score;
     }
 
-    if (previousMove & MULTI_TAKE_FLAG) {
-        getMoves(wc, bc, wq, bq, w90, b90, isWhiteMove, true, getTo(previousMove));
-    } else {
-        getMoves(wc, bc, wq, bq, w90, b90, isWhiteMove, false, -1);
-    }
-    sortMoves(hashedMoves[hash]);
+    getMoves(wc, bc, wq, bq, w90, b90, isWhiteMove, previousMove);
+    sortMoves(hashedMoves[hash], killer);
 
     _move movesSize = *currentMoves;
     if (movesSize == 0) {
@@ -142,11 +150,11 @@ short alphaBeta(
                 alpha,
                 beta,
                 move & MULTI_TAKE_FLAG ? depth : depth + 1,
-                isTake(move) && !(move & MULTI_TAKE_FLAG) && depth + 1 == maxDepth ? maxDepth + 1
-                                                                                   : maxDepth,
+                isTake(move) && !(move & MULTI_TAKE_FLAG) && depth + 1 == maxDepth ? maxDepth + 1 : maxDepth,
                 move,
                 moveCount + 1,
-                length
+                length,
+                bestLine ? *bestLine : 0
         );
 
         if (result == CANCEL_SCORE) {
@@ -198,7 +206,7 @@ void getBestMove(
         _board bq,
         _board w90,
         _board b90,
-        int multiTake,
+        _move previousMove,
         _cb isWhiteMove,
         short depth,
         std::vector<_move> &bestLine,
@@ -207,12 +215,6 @@ void getBestMove(
     stop = false;
     memset(hashedScores, 1 << 7, HASH_SIZE * sizeof(short));
 
-    _move previousMove;
-    if (multiTake == -1) {
-        previousMove = 0;
-    } else {
-        previousMove = createMove(0, multiTake, 0, 0, 0) | MULTI_TAKE_FLAG;
-    }
 
     int length = 0;
     eval = alphaBeta(
@@ -230,7 +232,8 @@ void getBestMove(
             depth,
             previousMove,
             0,
-            length
+            length,
+            0
     );
     for (int i = 0; i < length; ++i) {
         bestLine.push_back(movesLine[i]);

@@ -84,6 +84,22 @@ class Position {
         }
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as Position
+
+        if (!board.contentDeepEquals(other.board)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return board.contentDeepHashCode()
+    }
+
+
     companion object {
         const val BOARD_SIZE = 8
 
