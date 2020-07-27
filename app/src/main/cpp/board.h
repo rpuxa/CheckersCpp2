@@ -42,3 +42,5 @@ void makeMove(
 _board rotateBoard(_board board);
 
 extern _move currentMoves[256];
+extern int history[2][32][32];
+

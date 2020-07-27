@@ -13,6 +13,7 @@ extern "C"
 JNIEXPORT void JNICALL
 Java_ru_rpuxa_checkerscpp_natives_NativeMethods_prepareEngine(JNIEnv *env, jclass type) {
     gen();
+    initHashMovesPly();
 }
 
 extern "C"
@@ -158,3 +159,13 @@ Java_ru_rpuxa_checkerscpp_natives_NativeMethods_prepareEndGame(JNIEnv *env, jcla
     prepareEndGame(s);
 }
 
+extern "C"
+JNIEXPORT void JNICALL
+Java_ru_rpuxa_checkerscpp_natives_NativeMethods_prepareDebut(JNIEnv *env, jclass clazz, jstring path_file) {
+    int length = env->GetStringLength(path_file);
+    jboolean isCopy;
+    const char *convertedValue = (env)->GetStringUTFChars(path_file, &isCopy);
+    string s = string(convertedValue, length);
+
+    prepareDebuts(s);
+}

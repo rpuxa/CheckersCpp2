@@ -1,13 +1,15 @@
-#include <zconf.h>
 #include "board.h"
 #include "bitutils.h"
 #include "bitutils.cpp"
 #include "types.h"
 #include <string>
+#include <memory.h>
+#include <map>
 
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #define MULTI_TAKE_FLAG 0b10000000000000
-#define QUEEN_FLAG 0b1000000000000
 
 using namespace std;
 
@@ -18,6 +20,10 @@ _move createMove(_ci from, _ci to, _cb isTake, _cb isWhite, _cb isQueen) {
 
 inline _ui isTake(_cmove move) {
     return move & 1u;
+}
+
+inline _ui getColor(_cmove move) {
+    return (move >> 11) & 1u;
 }
 
 inline _ui getFrom(_cmove move) {
@@ -317,16 +323,16 @@ void genMoves() {
 }
 
 
-_hash zorbistKeys[4][32];
+_hash zorbistKeys[4][32] = {
+        {0x7816f, 0x2de7b, 0x2d51d, 0x10ab6, 0xca6e1, 0x73cbd, 0x5c83e, 0xaf0eb, 0xbbd09, 0xeddfd, 0x319f1, 0x8db7,  0xaeaed, 0x63245, 0xe3086, 0x8f841, 0xc22d4, 0x94916, 0x21afd, 0x45f2,  0x7e666, 0x85117, 0xcb3ad, 0x89f47, 0x35be4, 0x3c42e, 0x95c36, 0xf931b, 0xe843e, 0xef0b5, 0x5b003, 0x1cce1},
+        {0x72d41, 0xb6884, 0x400e3, 0xfd59e, 0xa75d9, 0x45e14, 0x1bc61, 0x4d9a0, 0x97513, 0x1ec93, 0x845bc, 0x160c0, 0x73611, 0x8501b, 0x8e87f, 0x8c463, 0xcc416, 0xd4c93, 0x11f81, 0xce4b6, 0xa9d15, 0xd6b74, 0x7b8f1, 0xe6958, 0xd45ad, 0x874c1, 0x30865, 0x4cb48, 0xdf006, 0xf0ccc, 0xa1bd5, 0x9fba0},
+        {0x65f60, 0x995de, 0xe1c0c, 0x5b635, 0xf42b1, 0xbaac,  0x56cbc, 0x78f5c, 0x4e5ec, 0xb935,  0xe040e, 0x18f15, 0x7e1eb, 0x9b675, 0xa2447, 0xd5f49, 0x20ab2, 0x61845, 0x8ca1d, 0x3acf8, 0xd26ff, 0x9f55e, 0xac6de, 0xbfdee, 0x4b0ec, 0xf0390, 0x554eb, 0xd770,  0x9f0a5, 0x5e327, 0xc0445, 0xcf39a},
+        {0x400a1, 0x34426, 0x87e3a, 0xb446,  0xabb63, 0xeeb51, 0x8cdc,  0xd2ec6, 0xc74af, 0x2e282, 0x9e333, 0x7c9da, 0x72124, 0xb192d, 0xe36ae, 0x81b8e, 0xd1a04, 0x394a0, 0x83289, 0x4d706, 0xb026,  0x4277f, 0xf03af, 0x2769b, 0x8cc9f, 0x379db, 0x1b8ee, 0xc12f0, 0x5848d, 0xd5cff, 0xafd34, 0xcef7b}
+
+};
 
 
 void genMovesMask() {
-    for (int i = 0; i < 4; ++i) {
-        for (int j = 0; j < 32; ++j) {
-            zorbistKeys[i][j] = rand() & HASH_MASK;
-        }
-    }
-
     for (_ui multiTake = 0; multiTake < 2; ++multiTake)
         for (_ui white = 0; white < 2; ++white)
             for (_ui queen = 0; queen < 2; ++queen)
@@ -427,10 +433,12 @@ void genMovesMask() {
 
                             if (!queen) {
                                 if (white) {
-                                    isPromotion[move] = LAST_HORIZONTAL[to];
+                                    isPromotion[move] = (bool) LAST_HORIZONTAL[to];
                                 } else {
-                                    isPromotion[move] = FIRST_HORIZONTAL[to];
+                                    isPromotion[move] = (bool) FIRST_HORIZONTAL[to];
                                 }
+                            } else {
+                                isPromotion[move] = false;
                             }
                         }
 }
@@ -627,7 +635,7 @@ void getMoves(
     bool take;
     int figureCell;
     bool q;
-    bool opp;
+    bool opp = false;
     bool rot;
 
     if (previousMove & MULTI_TAKE_FLAG) {
@@ -643,6 +651,8 @@ void getMoves(
         take = false;
         figureCell = -1;
         q = false;
+        rot = false;
+        opp = false;
     }
     if (isWhiteMove) {
         __getMoves(wc, bc, wq, bq, w90, b90, isWhiteMove, take, figureCell, q, rot, opp);
@@ -657,16 +667,16 @@ inline void swap(_move &a, _move &b) {
     b = tmp;
 }
 
-short moveScore[128];
 
+/*
 void qsort(int first, int last) {
     int mid;
     int f = first, l = last;
-    mid = moveScore[(f + l) / 2]; //вычисление опорного элемента
+    mid = moveScore[(f + l) / 2];
     do {
         while (moveScore[f] < mid) f++;
         while (moveScore[l] > mid) l--;
-        if (f <= l) //перестановка элементов
+        if (f <= l) 
         {
             swap(moveScore[f], moveScore[l]);
             swap(currentMoves[f], currentMoves[l]);
@@ -676,18 +686,63 @@ void qsort(int first, int last) {
     } while (f < l);
     if (first < l) qsort(first, l);
     if (f < last) qsort(f, last);
+}*/
+
+short moveScore[128];
+
+void insertionSort(short *indexes, int size) {
+    if (size < 2) return;
+    if (size == 2) {
+        if (moveScore[indexes[0]] > moveScore[indexes[1]]) {
+            swap(indexes[0], indexes[1]);
+        }
+    } else {
+        for (int j = 1; j < size; ++j) {
+            auto key = indexes[j];
+            auto keyScore = moveScore[key];
+            auto i = j - 1;
+            for (; i >= 0 && moveScore[indexes[i]] > keyScore; --i) {
+                indexes[i + 1] = indexes[i];
+            }
+            indexes[i + 1] = key;
+        }
+    }
 }
 
-void sortMoves(_move hashedMove, _move killer) {
+int history[2][32][32];
+
+void sortMoves(_move hashedMove, _move killer1, _move killer2) {
     _move movesSize = *currentMoves;
     if (movesSize < 2)
         return;
 
-    for (int i = 1; i <= movesSize; ++i) {
+    int negativesSize = 0;
+    int zeroesSize = 0;
+    static short negatives[128];
+    static short zeroes[128];
+
+    static int historyScores[128];
+    int maxHistoryPoints = 0;
+
+    for (short i = 1; i <= movesSize; ++i) {
+        _move move = currentMoves[i];
+        int points = history[getColor(move)][getFrom(move)][getTo(move)];
+        if (points > maxHistoryPoints) {
+            maxHistoryPoints = points;
+        }
+        historyScores[i] = points;
+    }
+
+    for (short i = 1; i <= movesSize; ++i) {
         _move move = currentMoves[i];
         short score = 0;
-        if (move == killer) {
-            score -= 100;
+
+        if (maxHistoryPoints > 0) {
+            score -= static_cast<short>(historyScores[i] * 128 / maxHistoryPoints);
+        }
+
+        if (move == killer1 || move == killer2) {
+            score -= 130;
         }
         if (isPromotion[move]) {
             score -= 150;
@@ -695,10 +750,30 @@ void sortMoves(_move hashedMove, _move killer) {
         if (move == hashedMove) {
             score -= 200;
         }
+
+
         moveScore[i] = score;
+        if (score < 0) {
+            negatives[negativesSize++] = i;
+        } else {
+            zeroes[zeroesSize++] = i;
+        }
     }
 
-    qsort(1, movesSize);
+    if (negativesSize == 0) {
+        return;
+    }
+    insertionSort(negatives, negativesSize);
+    static _move movesCopy[128];
+    memcpy(movesCopy + 1, currentMoves + 1, movesSize * sizeof(_move));
+
+    int index = 1;
+    for (int j = 0; j < negativesSize; ++j) {
+        currentMoves[index++] = movesCopy[negatives[j]];
+    }
+    for (int j = 0; j < zeroesSize; ++j) {
+        currentMoves[index++] = movesCopy[zeroes[j]];
+    }
 }
 
 inline void __makeMove(
@@ -795,6 +870,7 @@ void prepareEndGame(string path) {
     throw exception();
 }
 
+
 const short WHITE_CHECKER_POS[] = {
         0,
         1, 2, 3,
@@ -853,3 +929,59 @@ short getEndgame(_board wc, _board bc, _board wq, _board bq) {
     fread(&score, 1, 1, endgameData);
     return score;
 }
+
+std::map<_ull, _move> *debuts = nullptr;
+
+void prepareDebuts(string path) {
+    FILE *file = fopen(path.c_str(), "r");
+    if (file == nullptr) throw exception();
+    fseek(file, 0, SEEK_END);
+    _ui size = static_cast<_ui>(ftell(file) / 12);
+    rewind(file);
+
+    debuts = new map<_ull, _move>();
+    _ui *wholeFile = new _ui[size * 3];
+    fread(wholeFile, sizeof(_ui), size * 3, file);
+
+    for (_ui *p = wholeFile, i = 0; i < size; i++, p += 3) {
+        _ull pos = *((_ull *) p);
+        int move = p[2];
+        debuts->insert(make_pair(pos, move));
+    }
+    delete[] wholeFile;
+    fclose(file);
+}
+
+
+_move getFromDebutBase(_board wc, _board bc, _board wq, _board bq) {
+    if (debuts == nullptr) return 0;
+    if ((wq | bq) != 0) return 0;
+    _ull pos = 0ULL;
+    pos |= bc;
+    pos <<= 32;
+    pos |= wc;
+    int size = *currentMoves;
+
+    auto find = debuts->find(pos);
+    if (find == debuts->end()) {
+        return 0;
+    }
+    _move move = find->second;
+
+    for (int i = 1; i <= size; ++i) {
+        if (currentMoves[i] == move)
+            return move;
+    }
+
+    return 0;
+}
+/*
+int main() {
+    gen();
+    prepareDebuts("C:/Projects/CheckersDesktop/filtered positions");
+    getMoves(200319, -26165248, 0, 0, rotateBoard(200319), rotateBoard(-26165248), 1, 0);
+    int move = getFromDebutBase(200319, -26165248, 0, 0);
+    return move;
+}*/
+
+#pragma clang diagnostic pop

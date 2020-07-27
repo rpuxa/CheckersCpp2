@@ -26,3 +26,5 @@ void getBestMove(
 );
 
 void stopSearching();
+
+void initHashMovesPly();

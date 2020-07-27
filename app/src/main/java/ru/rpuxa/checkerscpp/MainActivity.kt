@@ -21,7 +21,7 @@ class MainActivity : AppCompatActivity() {
         val diagonal = intent?.getBooleanExtra("diagonal", false)!!
 
         NativeEngine.prepareEngine()
-        NativeMethods.prepareEndGame(cacheDir.toString())
+//        NativeMethods.prepareEndGame(cacheDir.toString())
 
         val human = Human(game_board)
         val pos  = if (diagonal) Position.createDiagonalPosition() else Position.createStartPosition()

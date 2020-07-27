@@ -39,7 +39,8 @@ inline short endGameEval(
     _ui blackCheckersCount = bitCount(bc);
     _ui blackQueensCount = bitCount(bq);
 
-    short score = CHECKER_SCORE * (blackCheckersCount - whiteCheckersCount) + QUEEN_SCORE_ENDGAME * (blackQueensCount - whiteQueensCount);
+    short score = CHECKER_SCORE * (blackCheckersCount - whiteCheckersCount) +
+                  QUEEN_SCORE_ENDGAME * (blackQueensCount - whiteQueensCount);
 
     _ui whiteCount = whiteCheckersCount + whiteQueensCount;
     _ui blackCount = blackCheckersCount + blackQueensCount;
@@ -328,13 +329,13 @@ inline short evalMiddle(
         if (atCell(wc, 12))
             if (atCell(wc, 11))
                 score--;
-                    else
+            else
                 score++;
 
         if (atCell(wc, 7))
             if (atCell(wc, 3))
                 score--;
-                    else
+            else
                 score++;
     }
 
@@ -414,17 +415,15 @@ inline short evalMiddle(
 }
 
 
-
 short eval(
         _board wc,
         _board bc,
         _board wq,
-        _board bq
+        _board bq,
+        bool isTurnWhite
 ) {
     _ui count = bitCount(wc | wq | bc | bq);
-    if (count <= 8) {
-        return -endGameEval(wc, bc, wq, bq);
-    }
-    return -evalMiddle(wc, bc, wq, bq, count > 19);
+    short score = (count <= 8) ? endGameEval(wc, bc, wq, bq) : evalMiddle(wc, bc, wq, bq, count > 19);
+    return isTurnWhite ? -score : score;
 }
 

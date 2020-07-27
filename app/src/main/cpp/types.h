@@ -11,4 +11,5 @@ namespace types {
     typedef const bool _cb;
     typedef _ui _hash;
     typedef _board _pos;
+    typedef  unsigned long long int _ull;
 }

@@ -7,6 +7,8 @@ public class NativeMethods {
 
     public static native void prepareEndGame(String path);
 
+    public static native void prepareDebut(String pathFile);
+
     public static native void getBestMove(
             int whiteCheckers,
             int blackCheckers,
@@ -38,6 +40,7 @@ public class NativeMethods {
     );
 
     public static native void stopSearching();
+
 
     static {
         System.loadLibrary("receiver");

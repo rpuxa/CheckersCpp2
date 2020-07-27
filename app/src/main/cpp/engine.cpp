@@ -1,27 +1,30 @@
 #include <vector>
+#include <memory.h>
 #include "types.h"
 #include "board.h"
 #include "evaluate.h"
 #include "evaluate.cpp"
-
+#include <iostream>
 
 using namespace types;
 using namespace std;
 
-const short WHITE_LOSING = -30000;
-const short BLACK_LOSING = 30000;
+const short LOSING = -30000;
+const short WINNING = 30000;
 const short NO_SCORE = 0b1000000010000000;
+const int POS_SIZE = 20;
 
 _move hashedMoves[HASH_SIZE];
-short hashedScores[HASH_SIZE];
-_pos positions[HASH_SIZE * 2];
+short hashedMovesDepth[HASH_SIZE];
 
-_move movesLine[32];
+void initHashMovesPly() {
+    fill_n(hashedMoves, HASH_SIZE, -1024);
+}
 
-_hash mhash(_board wc,
-            _board bc,
-            _board wq,
-            _board bq) {
+_hash getHash(_board wc,
+              _board bc,
+              _board wq,
+              _board bq) {
     _hash hash = 0;
     for (int i = 0; i < 32; ++i) {
         if (getBit(wc, i)) {
@@ -49,9 +52,9 @@ _hash mhash(_board wc,
 
 
 const short CANCEL_SCORE = -32000;
-int c = 0;
+const short DATABASE_SCORE = -32001;
 volatile bool stop;
-const int POS_SIZE = 18;
+volatile int analyzed;
 
 short alphaBeta(
         _board wc,
@@ -65,21 +68,21 @@ short alphaBeta(
         short alpha,
         short beta,
         short depth,
-        short maxDepth,
+        short ply,
         _move previousMove,
-        int moveCount,
-        int &moveLineLength,
-        _move killer
+        _move &bestMove,
+        _move killer1,
+        _move killer2
 ) {
     if (stop) {
         return CANCEL_SCORE;
     }
 
-    if ((wc | wq) == 0)
-        return WHITE_LOSING + depth;
-    if ((bc | bq) == 0)
-        return BLACK_LOSING - depth;
+    if ((wc | wq) == 0 || (bc | bq) == 0)
+        return LOSING + ply;
 
+
+    /*
     if (depth > 0 && bitCount(wc | bc | wq | bq) <= endgameSize) {
         short result = isWhiteMove ? getEndgame(wc, bc, wq, bq) : -getEndgame(reverse(bc),
                                                                               reverse(wc),
@@ -88,43 +91,40 @@ short alphaBeta(
         if (result == 0) return 0;
         short score = result > 0 ? 25001 - depth : -25001 + depth;
         return score - result;
-    }
-
-    short score;
-
-    _pos pos[5] = {wc, bc, wq, bq, static_cast<_pos>(
-            (isWhiteMove << 6) | (depth << 7)
-    )};
-    if (previousMove & MULTI_TAKE_FLAG) {
-        pos[4] |= (getTo(previousMove) << 1) | 1;
-    }
-    short hashedScore = hashedScores[hash];
-    if (hashedScore != NO_SCORE && memcmp(positions + (hash * 2), pos, POS_SIZE) == 0) {
-        c++;
-        return hashedScore;
-    }
+    }*/
 
 
-    if (depth >= maxDepth) {
-        score = eval(wc, bc, wq, bq);
-        return score;
+    if (depth <= 0) {
+        analyzed++;
+        return eval(wc, bc, wq, bq, isWhiteMove);
     }
 
     getMoves(wc, bc, wq, bq, w90, b90, isWhiteMove, previousMove);
-    sortMoves(hashedMoves[hash], killer);
 
     _move movesSize = *currentMoves;
     if (movesSize == 0) {
-        score = isWhiteMove ? WHITE_LOSING + depth : BLACK_LOSING - depth;
-        return score;
+        return LOSING + ply;
     }
+
+
+
+    // Отсечение плохих ходов
+    if (movesSize > 1 && !isTake(currentMoves[1])) {
+        short e = eval(wc, bc, wq, bq, isWhiteMove);
+        if (depth == 1 && e <= alpha - 50) //Razoring
+            return e;
+        if (depth < 6 && e - 4 * depth >= beta) //Futility Puring
+            return e;
+    }
+
+    sortMoves(hashedMoves[hash], killer1, killer2);
+
     _move *moves = new _move[movesSize];
     memcpy(moves, currentMoves + 1, movesSize * sizeof(_move));
 
-    _move *bestLine = nullptr;
-    _move bestLineLength = 0;
-    short copyAlpha = alpha;
-    short copyBeta = beta;
+    killer1 = 0;
+    killer2 = 0;
+
 
     for (int i = 0; i < movesSize; i++) {
         _move move = moves[i];
@@ -140,62 +140,63 @@ short alphaBeta(
         makeMove(copy_wc, copy_bc, copy_wq, copy_bq, copy_w90, copy_b90, move, copy_hash,
                  isWhiteMove);
 
-        int length = 0;
+        _move childBestMove = 0;
 
-        short result = alphaBeta(
-                copy_wc, copy_bc, copy_wq,
-                copy_bq, copy_w90, copy_b90,
-                copy_hash,
-                (move & MULTI_TAKE_FLAG) != 0 == isWhiteMove,
-                alpha,
-                beta,
-                move & MULTI_TAKE_FLAG ? depth : depth + 1,
-                isTake(move) && !(move & MULTI_TAKE_FLAG) && depth + 1 == maxDepth ? maxDepth + 1 : maxDepth,
-                move,
-                moveCount + 1,
-                length,
-                bestLine ? *bestLine : 0
-        );
+
+        short result;
+        if (move & MULTI_TAKE_FLAG) {
+            result = alphaBeta(
+                    copy_wc, copy_bc, copy_wq,
+                    copy_bq, copy_w90, copy_b90,
+                    copy_hash,
+                    isWhiteMove,
+                    alpha,
+                    beta,
+                    depth,
+                    ply,
+                    move,
+                    childBestMove,
+                    0,
+                    0
+            );
+        } else {
+            result = -alphaBeta(
+                    copy_wc, copy_bc, copy_wq,
+                    copy_bq, copy_w90, copy_b90,
+                    copy_hash,
+                    !isWhiteMove,
+                    -beta,
+                    -alpha,
+                    static_cast<short>((ply > 6 && i > 3) ? depth - 2 : depth - 1),
+                    static_cast<short>(ply + 1),
+                    move,
+                    childBestMove,
+                    killer1,
+                    killer2
+            );
+        }
 
         if (result == CANCEL_SCORE) {
             return CANCEL_SCORE;
         }
-
-        if (isWhiteMove) {
-            if (result > alpha) {
-                alpha = result;
-                goto resultHasBeenImproved;
-            }
-        } else {
-            if (result < beta) {
-                beta = result;
-
-                resultHasBeenImproved:
-                delete[] bestLine;
-                bestLine = new _move[length + 1];
-                bestLine[0] = move;
-                memcpy(bestLine + 1, movesLine + (moveCount + 1), length * sizeof(_move));
-                bestLineLength = length + 1;
+        if (result > alpha) {
+            alpha = result;
+            bestMove = move;
+            if (hashedMovesDepth[hash] < depth) {
                 hashedMoves[hash] = move;
+                hashedMovesDepth[hash] = depth;
             }
+            killer2 = killer1;
+            killer1 = childBestMove;
         }
-        if (alpha >= beta)
+        if (alpha >= beta) {
+            history[getColor(move)][getFrom(move)][getTo(move)] += depth * depth;
             break;
+        }
     }
 
     delete[] moves;
-    moveLineLength = bestLineLength;
-    memcpy(movesLine + moveCount, bestLine, bestLineLength * sizeof(_move));
-    delete[] bestLine;
-    score = isWhiteMove ? alpha : beta;
-
-    // score hash
-    if (score > copyAlpha && score < copyBeta) {
-        hashedScores[hash] = score;
-        memcpy(positions + (hash * 2), pos, POS_SIZE);
-    }
-
-    return score;
+    return alpha;
 }
 
 
@@ -213,10 +214,26 @@ void getBestMove(
         short &eval
 ) {
     stop = false;
-    memset(hashedScores, 1 << 7, HASH_SIZE * sizeof(short));
+
+    getMoves(wc, bc, wq, bq, w90, b90, isWhiteMove, previousMove);
+    _move dbMove = getFromDebutBase(wc, bc, wq, bq);
+    if (dbMove != 0) {
+        bestLine.push_back(dbMove);
+        eval = DATABASE_SCORE;
+        return;
+    }
 
 
-    int length = 0;
+    analyzed = 0;
+    _move bestMove = 0;
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 32; ++j) {
+            for (int k = 0; k < 32; ++k) {
+                 history[i][j][k] = 0;
+            }
+        }
+    }
+
     eval = alphaBeta(
             wc,
             bc,
@@ -224,20 +241,25 @@ void getBestMove(
             bq,
             w90,
             b90,
-            mhash(wc, bc, wq, bq),
+            getHash(wc, bc, wq, bq),
             isWhiteMove,
-            WHITE_LOSING,
-            BLACK_LOSING,
-            0,
+            LOSING,
+            WINNING,
             depth,
-            previousMove,
             0,
-            length,
+            previousMove,
+            bestMove,
+            0,
             0
     );
-    for (int i = 0; i < length; ++i) {
-        bestLine.push_back(movesLine[i]);
+
+    std::cout << "Analyzed positions: " << analyzed << endl;
+
+    if (eval != CANCEL_SCORE && !isWhiteMove) {
+        eval = -eval;
     }
+
+    bestLine.push_back(bestMove);
 }
 
 void stopSearching() {

@@ -16,5 +16,6 @@ short eval(
         _board our,
         _board enemy,
         _board our_q,
-        _board enemy_q
+        _board enemy_q,
+        bool isTurnWhite
 );
